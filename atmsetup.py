@@ -88,7 +88,7 @@ class ATMSETUP():
 
         read_3d = self.input['atmosphere']['profile'] #huge dictionary with [lat][lon][bundle]
 
-        self.c.nlevel = self.input['atmosphere']['profile'].dims['pressure']
+        self.c.nlevel = self.input['atmosphere']['profile'].sizes['pressure']
         self.c.nlayer = self.c.nlevel - 1  
         ng , nt = self.c.ngangle, self.c.ntangle
 
@@ -178,6 +178,7 @@ class ATMSETUP():
         self.molecules = np.array([],dtype=str)
 
         for i in read.keys():
+            print(i)
             if i in ['pressure', 'temperature']: continue
             try:
                 weights[i] = pd.Series([self.get_weights([i])[i]])
@@ -189,8 +190,8 @@ class ATMSETUP():
                 else:                   #don't raise exception, instead add user warning that a column has been automatically skipped
                     self.add_warnings("Ignoring %s in input file, not recognized molecule" % i)
                     warnings.warn("Ignoring %s in input file, not a recognized molecule" % i, UserWarning)
-        
-        self.weights = weights 
+    
+        self.weights = weights
 
         #DEFINE MIXING RATIOS
         self.level['mixingratios'] = read[list(weights.keys())]
@@ -330,7 +331,9 @@ class ATMSETUP():
                     el, num = sep
                 #default isotope
                 if iso_num=='main':
-                    iso_num = list(ele[el].isotopes.keys())[0] 
+                    #select the main isotope off according to that with the highest relative abundance
+                    main_iso = np.argmax([ele[el].isotopes[i].abundance for i in ele[el].isotopes.keys()])
+                    iso_num = list(ele[el].isotopes.keys())[main_iso] 
                 totmass += ele[el].isotopes[iso_num].mass*float(num)
 
             weights[i]=totmass
@@ -344,6 +347,7 @@ class ATMSETUP():
         """
         if self.dimension=='1d':
             weighted_matrix = self.level['mixingratios'].values @ self.weights.values[0]
+            
         elif self.dimension=='3d':
             weighted_matrix=np.zeros((self.c.nlevel, self.c.ngangle, self.c.ntangle))
             for g in range(self.c.ngangle):
@@ -494,14 +498,17 @@ class ATMSETUP():
             #then reshape and regrid inputs to be a nice matrix that is nlayer by nwave
             #total extinction optical depth 
             opd = np.reshape(cld_input['opd'].values, (self.c.nlayer,self.c.input_npts_wave))
+            opd = opd.astype(np.float64)
             if regrid: opd = regrid_cld(opd, self.input_wno, wno)
             self.layer['cloud'] = {'opd': opd}
             #cloud assymetry parameter
             g0 = np.reshape(cld_input['g0'].values, (self.c.nlayer,self.c.input_npts_wave))
+            g0 = g0.astype(np.float64)
             if regrid: g0 = regrid_cld(g0, self.input_wno, wno)
             self.layer['cloud']['g0'] = g0
             #cloud single scattering albedo 
             w0 = np.reshape(cld_input['w0'].values, (self.c.nlayer,self.c.input_npts_wave))
+            w0 = w0.astype(np.float64)
             if regrid: w0 = regrid_cld(w0, self.input_wno, wno)
             self.layer['cloud']['w0'] = w0  
 
@@ -524,7 +531,7 @@ class ATMSETUP():
             cld_input = self.input['clouds']['profile'] 
             cld_input = cld_input.sortby('wno').sortby('pressure')
             if regrid: cld_input = cld_input.interp(wno = wno)
-            if [i for i in cld_input.dims] != ["pressure","wno","lon", "lat"]:
+            if [i for i in cld_input.sizes] != ["pressure","wno","lon", "lat"]:
                 opd = cld_input['opd'].transpose("pressure","wno","lon", "lat").values
                 g0 = cld_input['g0'].transpose("pressure","wno","lon", "lat").values
                 w0 = cld_input['w0'].transpose("pressure","wno","lon", "lat").values

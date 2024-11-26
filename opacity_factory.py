@@ -221,7 +221,7 @@ def insert_hitran_cia(original_file, molname, new_db, new_wno):
         insert(cur,conn,molname, current_cia_temps[it], final_bundle)
     conn.commit()
     conn.close()
-    ßurn 
+    return 
 
 def get_original_data(original_file,colnames,new_db, overwrite=False):
     """
@@ -902,13 +902,13 @@ def insert_molecular_1460(molecule, min_wavelength, max_wavelength,og_directory,
     find_txt_files =  glob.glob(os.path.join(mol_dir,'*txt*'))
     find_fort_files =  glob.glob(os.path.join(mol_dir,'fort.*'))
 
-    if len(find_p_files)>10:
+    if len(find_p_files)>1000:
         ftype = 'fortran_binary'
-    elif len(find_npy_files)>10: 
+    elif len(find_npy_files)>1000: 
         ftype = 'python'
-    elif len(find_txt_files)>10:
+    elif len(find_txt_files)>1000:
         ftype='lupu_txt'
-    elif len(find_fort_files)>10:
+    elif len(find_fort_files)>1000:
         ftype='rfree_fort'
     else: 
         raise Exception('Could not find npy or p_ files. npy are assumed to be read via np.load, where as p_ files are assumed to be unformatted binary or alkali files')
@@ -1542,23 +1542,21 @@ def compute_ck_molecular(molecule,og_directory,wv_file_name=None,
         else: 
             mol_dir = alkali_dir
     else:
-        mol_dir = og_directory #os.path.join(og_directory,molecule)
+        mol_dir = os.path.join(og_directory,molecule)
 
 
     #determine file type    
     find_p_files = glob.glob(os.path.join(mol_dir,'*p_*'))
-    find_npy_files = glob.glob(os.path.join(mol_dir,'*.npy'))
+    find_npy_files = glob.glob(os.path.join(mol_dir,'*npy*'))
     find_txt_files =  glob.glob(os.path.join(mol_dir,'*txt*'))
-    print(mol_dir)
 
-    if len(find_p_files)>10:
+    if len(find_p_files)>1000:
         ftype = 'fortran_binary'
-    elif len(find_npy_files)>10:
+    elif len(find_npy_files)>1000:
         ftype = 'python'
-    elif len(find_txt_files)>10:
+    elif len(find_txt_files)>1000:
         ftype='lupu_txt'
     else:
-        print('is this even working?')
         raise Exception('Could not find npy or p_ files. npy are assumed to be read via np.load, where as p_ files are assumed to be unformatted binary or alkali files')
 
 

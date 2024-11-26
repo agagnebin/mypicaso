@@ -7,7 +7,7 @@ from numpy import log10
 import json
 import os
 from numba import jit
-from bokeh.plotting import show, output_file#, fire
+from bokeh.plotting import figure, show, output_file
 from bokeh.palettes import inferno
 from astropy.io import fits
 import io 
@@ -15,12 +15,11 @@ import sqlite3
 import math
 from scipy.io import FortranFile
 from .deq_chem import mix_all_gases
-from .opacity_factory import compute_ck_molecular
 
 __refdata__ = os.environ.get('picaso_refdata')
 #@jit(nopython=True)
 def compute_opacity(atmosphere, opacityclass, ngauss=1, stream=2, delta_eddington=True,
-    test_mode=False,raman=0, plot_opacity=False,full_output=False, return_mode=False):
+    test_mode=False,raman=0, plot_opacity=False,full_output=False, return_mode=False, fthin_cld = None, do_holes = False):
     """
     Returns total optical depth per slab layer including molecular opacity, continuum opacity. 
     It should automatically select the molecules needed
@@ -57,6 +56,10 @@ def compute_opacity(atmosphere, opacityclass, ngauss=1, stream=2, delta_eddingto
     return_mode : bool 
         (Optional) Default = False, If true, will only return matrices for all the weighted opacity 
         contributions
+    do_holes : bool
+        (Optional) Default = False, If true, will calculate clearsky
+    fthin_cld : float
+        Fraction of thin clouds in patchy cloud column (from 0 to 1.0), default 0 for clear sky column
     Returns
     -------
     DTAU : ndarray 
@@ -319,7 +322,7 @@ def compute_opacity(atmosphere, opacityclass, ngauss=1, stream=2, delta_eddingto
     # This is the fractional of the total scattering that will be due to the cloud
     #VERY important note. You must weight the taucld by the single scattering 
     #this is because we only care about the fractional opacity from the cloud that is 
-    #scattering. 
+    #scattering. Equivalent to w_ray in optici.f
     ftau_cld = (single_scattering_cld * TAUCLD)/(single_scattering_cld * TAUCLD + TAURAY)
 
     #COSB = ftau_cld*asym_factor_cld
@@ -340,6 +343,15 @@ def compute_opacity(atmosphere, opacityclass, ngauss=1, stream=2, delta_eddingto
     #sum up taus starting at the top, going to depth
     TAU = np.zeros((nlayer+1, nwno,ngauss))
     for igauss in range(ngauss): TAU[1:,:,igauss]=numba_cumsum(DTAU[:,:,igauss])
+
+    # Clearsky case
+    if do_holes == True:
+        DTAU = TAUGAS + TAURAY + fthin_cld*TAUCLD #fraction of cloud opacity
+        COSB = fthin_cld*np.copy(asym_factor_cld) #fraction of cloud asymmetry
+        ftau_ray = TAURAY/(TAURAY + single_scattering_cld * TAUCLD *fthin_cld)
+        GCOS2 = 0.5*ftau_ray # since ftau_ray = 1 without any clouds
+        W0 = (TAURAY*raman_factor + fthin_cld*TAUCLD*single_scattering_cld) / DTAU #TOTAL single scattering
+        W0_no_raman = (TAURAY*0.99999 + TAUCLD*single_scattering_cld* fthin_cld) / DTAU #TOTAL single scattering
 
     if plot_opacity:
         opt_figure.line(1e4/opacityclass.wno, DTAU[plot_layer,:,0], legend_label='TOTAL', line_width=4, color=colors[0],
@@ -647,18 +659,29 @@ class RetrieveCKs():
         NOT FUNCTIONAL YET. 
         Wavelength range to compuate in the format [min micron, max micron]
     """
-    def __init__(self, ck_dir = None, cont_dir = None, wave_range=None, 
-        deq=False, on_fly=False, gases_fly=None, custom_abundances = False, abund_name = None, 
-        abunds = None):#, custom_dir = None, alkali_dir=None, R = None):
-        #self.ck_filename = ck_dir
-        #read in the full abundance file sot hat we can check the number of kcoefficient layers 
-        #this should either be 1460 or 1060
+    def __init__(self, ck_dir, cont_dir, wave_range=None, 
+        deq=False, on_fly=False,gases_fly=None, custom_abundances = False, abund_name = None, 
+        abunds = None):
+        self.ck_filename = ck_dir
+        self.full_abunds =  pd.read_csv(os.path.join(self.ck_filename,'full_abunds'),
+            sep='\s+')
+        self.kcoeff_layers = self.full_abunds.shape[0]
         if custom_abundances:
             if wave_range == None:
                 print('Please specify wavelength range!')
+            if self.kcoeff_layers==1060: 
+                self.get_legacy_data_1060(wave_range,deq=deq) #wave_range not used yet
+            elif self.kcoeff_layers==1460:
+                self.get_legacy_data_1460(wave_range) #wave_range not used yet
+            else: 
+                raise Exception(f"There are {self.kcoeff_layers} in the full_abunds file. Currently only the 1060 or 1460 grids are supported. Please check your file input.")
+                
             opa_filepath  = os.path.join(__refdata__, 'climate_INPUTS/661')
+            print(opa_filepath)
             self.get_new_wvno_grid_661()
+            print(abund_name)
             self.full_abunds = self.load_kcoeff_arrays_first(opa_filepath,gases_fly = abund_name)
+            print(self.full_abunds)
             self.db_filename = cont_dir
             wv = np.linspace(wave_range[0], wave_range[1], 100)
             #self.wno = 1e4/wv[::-1]
@@ -666,21 +689,24 @@ class RetrieveCKs():
             #self.get_available_continuum()
             self.get_available_rayleigh()
             self.ngauss = 1
-            #self.full_abunds = [abund_name, abunds]
-            #self.mix_my_opacities_gasesfly(custom_abundances=custom_abundances, abund_name = abund_name, abunds = abunds)
-            #self.run_cia_spline_661()
-            #self.mix_my_opacities_gasesfly(gases_fly=gases_fly, custom_abundances=True, abund_name=abund_name, abunds=abunds)
-        #    self.full_abunds = mix_my_opacities_gasesfly()
-         #   self.full_abunds = []
-          #  for i in range(len(abund_name)):
-           #     self.full_abunds.append(compute_ck_molecular(molecule=abund_name[i], og_directory = custom_dir, alkali_dir=alkali_dir, R = R, min_wavelength=wave_range[0], max_wavelength=wave_range[1]))
+            #self.ck_filename = ck_dir
+            print(self.ck_filename)
+            
+            #self.full_abunds =  pd.read_csv(os.path.join(self.ck_filename,'full_abunds'), sep='\s+')
+            #self.kcoeff_layers = self.full_abunds.shape[0]
+            #if self.kcoeff_layers==1060: 
+             #   self.get_legacy_data_1060(wave_range,deq=deq) #wave_range not used yet
+            #elif self.kcoeff_layers==1460:
+             #   self.get_legacy_data_1460(wave_range)
+        
+       
+        #read in the full abundance file sot hat we can check the number of kcoefficient layers 
+        #this should either be 1460 or 1060
+        
+        #self.kcoeff_layers = self.full_abunds.shape[0]
         else:
-            self.ck_filename = ck_dir
-            self.full_abunds =  pd.read_csv(os.path.join(self.ck_filename,'full_abunds'),
-                sep='\s+')
-            self.kcoeff_layers = self.full_abunds.shape[0]
 
-            if (deq == False): 
+            if deq == False :
             #choose get data function based on layer number
                 if self.kcoeff_layers==1060: 
                     self.get_legacy_data_1060(wave_range,deq=deq) #wave_range not used yet
@@ -694,9 +720,9 @@ class RetrieveCKs():
                 self.get_available_continuum()
                 self.get_available_rayleigh()
                 self.run_cia_spline()
-                
             
-            elif (deq == True) and (on_fly == False):
+        
+            elif (deq == True) and (on_fly == False) :
                 #this option follows the old method where we used 
                 #661 fortran files computed by T.Karidali
                 #this is why we have to use the 1060 files instead 
@@ -711,7 +737,7 @@ class RetrieveCKs():
                 self.get_available_rayleigh()
                 self.run_cia_spline_661()
             
-            elif (deq == True) and (on_fly== True):
+            elif (deq == True) and (on_fly== True) :
                 #self.get_gauss_pts_661_1460() repetetive code function
                 self.get_legacy_data_1460(wave_range)
                 self.get_new_wvno_grid_661()
@@ -722,7 +748,7 @@ class RetrieveCKs():
                 self.get_available_continuum()
                 self.get_available_rayleigh()
                 self.run_cia_spline_661()
-        return
+            return
 
     def get_legacy_data_1060(self,wave_range, deq=False):
         """
@@ -794,7 +820,7 @@ class RetrieveCKs():
 
         gpts_wts = np.reshape(np.array(data.iloc[end_temps+1:2+end_temps+int(2*self.ngauss/3),0:3]
                  .astype(float)).ravel()[1:-1], (self.ngauss,2))
-
+        print(gpts_wts)
         self.gauss_pts = np.array([i[0] for i in gpts_wts])
         self.gauss_wts = np.array([i[1] for i in gpts_wts])
 
@@ -882,7 +908,7 @@ class RetrieveCKs():
 
                 gpts_wts = np.reshape(np.array(data.iloc[end_temps+1:2+end_temps+int(2*self.ngauss/3),0:3]
                  .astype(float)).ravel()[:-2], (self.ngauss,2))
-                
+                print(gpts_wts)
                 self.gauss_pts = np.array([i[0] for i in gpts_wts])
                 self.gauss_wts = np.array([i[1] for i in gpts_wts])
             
@@ -1352,7 +1378,7 @@ class RetrieveCKs():
                         ((1-t_interp[i])* (p_interp[i])   * kappa_mixed[i,:,:,2]) )
         self.molecular_opa = np.exp(kappa)*6.02214086e+23
     
-    def mix_my_opacities_gasesfly(self = None,bundle = None,atmosphere = None,gases_fly = None, custom_abundances = False, abund_name = None, abunds = None):
+    def mix_my_opacities_gasesfly(self,bundle,atmosphere,gases_fly, custom_abundances = False, abund_name = None, abunds = None):
         """
         Top Function to perform "on-the-fly" mixing and then interpolating of 5 opacity sources from Amundsen et al. (2017)
         """
@@ -1471,7 +1497,6 @@ class RetrieveCKs():
                         mix_h2s =  abunds[i]
             else:
                 mix_h2s =  0.0
-
         else:
             if 'CO' in gases_fly:
                 mix_co =   bundle.inputs['atmosphere']['profile']['CO'].values # mixing ratio of CO
@@ -1755,12 +1780,10 @@ class RetrieveCKs():
             low_pts=[]
             high_pts=[]
             for pt_pair_ele in pt_pairs:
-                if pt_pair_ele[-1] == coordinate[2]:
+                if pt_pair_ele[-1]  == coordinate[2]:
                     low_pts += [pt_pair_ele]
-
                 if pt_pair_ele[-1] == coordinate[3]:
-                    high_pts += [pt_pair_ele]                
-            
+                    high_pts += [pt_pair_ele]
             ind_p_lowT = min(low_pts, key= lambda c: np.abs(np.log(c[-2])-np.log(coordinate[0])))
             
             if ind_p_lowT[-2] <= coordinate[0]:
@@ -1983,6 +2006,7 @@ class RetrieveCKs():
         if 'H2O' in gases_fly:
             array = np.load(path+'/H2O_1460.npy')
             self.kappa_h2o = array
+            #print(self.kappa_h2o)
         else:
             array = np.load(path+'/H2O_1460.npy')
             self.kappa_h2o = array*0-250.0

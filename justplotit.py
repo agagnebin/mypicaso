@@ -204,7 +204,9 @@ def bin_errors(newx, oldx, dy):
     return err
 
 
-def mixing_ratio(full_output,limit=50,ng=None,nt=None, **kwargs):
+def mixing_ratio(full_output,limit=50,ng=None,nt=None, plot_type='bokeh',
+        molecules=None,
+        **kwargs):
     """Returns plot of mixing ratios 
 
     Parameters
@@ -214,10 +216,13 @@ def mixing_ratio(full_output,limit=50,ng=None,nt=None, **kwargs):
     limit : int
         Limits the number of curves to 20. Will plot the top 20 molecules 
         with highest max(abundance). Limit must be >=3. 
+    molecules : list 
+        Directly specify which molecule to plot 
+    plot_type : str 
+        Options are "bokeh" or "matplotlib". Default is bokeh
     **kwargs : dict 
         Any key word argument for bokeh.figure() 
     """
-    molecules = full_output['weights'].keys()
     #set plot defaults
     if ((ng==None) & (nt==None)):
         pressure = full_output['layer']['pressure']
@@ -1921,6 +1926,11 @@ def animate_convergence(clima_out, picaso_bundle, opacity, calculation='thermal'
                 np.copy(clima_out['pressure']), 
                 np.copy(clima_out['all_profiles']))
     
+    if 'all_opd' in clima_out:
+        # Code to be executed if clima_out['all_opd'] exists
+        all_opd = np.copy(clima_out['all_opd'])
+        cld_p = np.copy(clima_out['cld_output_picaso']['pressure'][0::196])
+    
     nlevel = len(t_eq)
     mols_to_plot = {i:np.zeros(len(all_profiles_eq)) for i in molecules}
     spec = np.zeros(shape =(int(len(all_profiles_eq)/nlevel),opacity.nwno))
@@ -1931,6 +1941,9 @@ def animate_convergence(clima_out, picaso_bundle, opacity, calculation='thermal'
                              p_eq)
 
         picaso_bundle.premix_atmosphere(opacity,picaso_bundle.inputs['atmosphere']['profile'])
+
+        if 'cld_output_picaso' in clima_out:
+            picaso_bundle.clouds(df=clima_out['cld_output_picaso'])
 
         df_spec = picaso_bundle.spectrum(opacity,calculation=calculation,full_output=True)
         spec[i,:] = df_spec[map_calc[calculation]]
@@ -1946,13 +1959,25 @@ def animate_convergence(clima_out, picaso_bundle, opacity, calculation='thermal'
     plt.rcParams["font.weight"] = "bold"
     plt.rcParams["axes.labelweight"] = "bold"
 
+    fig = plt.figure(figsize=(50,10))
 
-    x='''
-    AA.BB.CC
-    '''
-    fig = plt.figure(figsize=(35,10))
+    # plot optical depth profile as well
+    if 'all_opd' in clima_out:
+        x='''
+        AA.BB.CC.DD
+        '''
 
-    ax = fig.subplot_mosaic(x,gridspec_kw={
+        ax = fig.subplot_mosaic(x,gridspec_kw={
+            # set the height ratios between the rows
+            "height_ratios": [1],
+            # set the width ratios between the columns
+            "width_ratios": [1,1,0.1,1,1,0.1,1,1,0.1,1,1]})
+
+    else:
+        x='''
+        AA.BB.CC
+        '''
+        ax = fig.subplot_mosaic(x,gridspec_kw={
             # set the height ratios between the rows
             "height_ratios": [1],
             # set the width ratios between the columns
@@ -1968,18 +1993,21 @@ def animate_convergence(clima_out, picaso_bundle, opacity, calculation='thermal'
         lines['spec'], = ax['C'].semilogy(1e4/df_spec['wavenumber'], spec[0,:],linewidth=3,color="k")
     else: 
         lines['spec'], = ax['C'].plot(1e4/df_spec['wavenumber'], spec[0,:],linewidth=3,color="k")
+    
+    if 'all_opd' in clima_out: #bad hack to make shapes match but won't affect the plot
+        lines['opd'], = ax['D'].loglog(all_opd[:91], np.append(cld_p,0),linewidth=3,color='k')
 
     def init():
         #line.set_ydata(np.ma.array(x, mask=True))
 
         ax['A'].set_xlabel('Temperature [K]',fontsize=30)
         ax['A'].set_ylabel('Pressure [Bars]',fontsize=30)
-        ax['A'].set_xlim(200,2900)
-        ax['A'].set_ylim(205,1.8e-4)
+        ax['A'].set_xlim(0,max(t_eq))
+        ax['A'].set_ylim(max(p_eq),min(p_eq))
         ax['B'].set_xlabel('Abundance [V/V]',fontsize=30)
         ax['B'].set_ylabel('Pressure [Bars]',fontsize=30)
         ax['B'].set_xlim(1e-6,1e-2)
-        ax['B'].set_ylim(205,1.8e-4)
+        ax['B'].set_ylim(max(p_eq),min(p_eq))
         ax['B'].legend(fontsize=20)
         ax['C'].set_xlabel('Wavelength [$\mu$m]',fontsize=30)
         ax['C'].set_ylabel('Spectrum',fontsize=30)
@@ -1995,10 +2023,22 @@ def animate_convergence(clima_out, picaso_bundle, opacity, calculation='thermal'
         ax['C'].tick_params(axis='both',which='major',length =30, width=2,direction='in',labelsize=30)
         ax['C'].tick_params(axis='both',which='minor',length =10, width=2,direction='in',labelsize=30)
 
+        if 'all_opd' in clima_out:
+            ax['D'].set_xlabel('Optical Depth',fontsize=30)
+            ax['D'].set_ylabel('Pressure [Bars]',fontsize=30)
+            ax['D'].set_xlim(1e-7,1e3)
+            ax['D'].set_ylim(max(p_eq),min(p_eq))
+            ax['D'].minorticks_on()
+            ax['D'].tick_params(axis='both',which='major',length =30, width=2,direction='in',labelsize=30)
+            ax['D'].tick_params(axis='both',which='minor',length =10, width=2,direction='in',labelsize=30)
+
         for ikey in molecules+['temp']:
             lines[ikey].set_ydata(p_eq)
         
         lines['spec'].set_xdata(wv)
+
+        if 'all_opd' in clima_out:
+            lines['opd'].set_ydata(np.append(cld_p,max(cld_p)+1))
         return lines
     
     def animate(i):                       
@@ -2008,6 +2048,9 @@ def animate_convergence(clima_out, picaso_bundle, opacity, calculation='thermal'
             lines[imol].set_xdata(mols_to_plot[imol][i*nlevel:(i+1)*nlevel])
         
         lines['spec'].set_ydata(spec[i,:][wh])
+
+        if 'all_opd' in clima_out:
+            lines['opd'].set_xdata(np.append(all_opd[i*90:(i+1)*90],1e-50))
         return lines
 
     ani = animation.FuncAnimation(fig, animate, frames=int(len(all_profiles_eq)/nlevel),init_func=init,interval=50, blit=False)
@@ -2187,7 +2230,7 @@ def pt_adiabat(clima_out, input_class, plot=True):
                       
     plt.semilogy(clima_out['dtdp'], layer_p)
     plt.semilogy(grad,layer_p) 
-    plt.ylim([1e2,1e-4]), 
+    plt.ylim([1e4,1e-4]), 
     plt.xlabel('dT/dP vs adiabat')
     plt.ylabel('Pressure(bars)')
-    return cp, clima_out['dtdp'], layer_p
+    return cp, grad, clima_out['dtdp'], layer_p
