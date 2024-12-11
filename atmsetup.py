@@ -178,7 +178,6 @@ class ATMSETUP():
         self.molecules = np.array([],dtype=str)
 
         for i in read.keys():
-            print(i)
             if i in ['pressure', 'temperature']: continue
             try:
                 weights[i] = pd.Series([self.get_weights([i])[i]])

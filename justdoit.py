@@ -1704,7 +1704,7 @@ class inputs():
             return FOPI
         """
 
-    def atmosphere(self, df=None, filename=None, exclude_mol=None, verbose=True, **pd_kwargs):
+    def atmosphere(self, df=None, filename=None, exclude_mol=None, verbose=True, custom_abundances = False, **pd_kwargs):
         """
         Builds a dataframe and makes sure that minimum necessary parameters have been suplied.
         Sets number of layers in model.  
@@ -1807,9 +1807,9 @@ class inputs():
         #Turn off raman for 196 premix calculations 
         self.inputs['approx']['rt_params']['common']['raman'] = 2
 
-        #self.chem_interp(opa.full_abunds)
-        if not custom_abundances: 
-            self.chem_interp(opa.full_abunds)
+        self.chem_interp(opa.full_abunds)
+        #if not custom_abundances: 
+         #   self.chem_interp(opa.full_abunds)
 
     def premix_atmosphere_diseq(self, opa, quench_levels,t_mix=None, df=None, filename=None, vol_rainout = False, quench_ph3 = True, kinetic_CO2 = True, no_ph3 = False, **pd_kwargs):
         """
@@ -3818,7 +3818,7 @@ class inputs():
 
     def climate(self, opacityclass, save_all_profiles = False, as_dict=True,with_spec=False,
         save_all_kzz = False, diseq_chem = False, self_consistent_kzz =False, kz = None, 
-        on_fly=False,gases_fly=None, custom_abundances = False, abund_name = None, abunds = None, chemeq_first=True,verbose=True):#,
+        on_fly=False,gases_fly=None, custom_abundances = False, abund_name = None, abunds = None, chemeq_first=True,verbose=True, wave_range = None):#,
        
         """
         Top Function to run the Climate Model
@@ -4112,7 +4112,7 @@ class inputs():
             if custom_abundances: ######EDITING HERE
                 if verbose: print("From now I will mix "+str(gases_fly)+" only on--the--fly")
                 opacityclass = opannection( wave_range = wave_range, 
-                    ck_db=opacityclass.ck_filename,filename_db=filename_db,
+                    ck_db=opacityclass.ck_filename,filename_db=filename_db, custom_abundances=True, abunds = abunds,
                     deq = True,on_fly=True,gases_fly=gases_fly)
             
             else:

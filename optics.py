@@ -680,13 +680,16 @@ class RetrieveCKs():
             print(opa_filepath)
             self.get_new_wvno_grid_661()
             print(abund_name)
-            self.full_abunds = self.load_kcoeff_arrays_first(opa_filepath,gases_fly = abund_name)
+            #abunds = []
+            #for i in range(len(abunds)):
+             #   abunds.append(abunds[i])
+            self.full_abunds = abunds
             print(self.full_abunds)
             self.db_filename = cont_dir
-            wv = np.linspace(wave_range[0], wave_range[1], 100)
+           # wv = np.linspace(wave_range[0], wave_range[1], 100)
             #self.wno = 1e4/wv[::-1]
             #self.delta_wno = self.wno[1] - self.wno[0]
-            #self.get_available_continuum()
+            self.get_available_continuum()
             self.get_available_rayleigh()
             self.ngauss = 1
             #self.ck_filename = ck_dir
@@ -1382,201 +1385,86 @@ class RetrieveCKs():
         """
         Top Function to perform "on-the-fly" mixing and then interpolating of 5 opacity sources from Amundsen et al. (2017)
         """
-        if custom_abundances:
-            if 'CO' in abund_name:
-                for i in range(len(abund_name)):
-                    if abund_name[i] == 'CO':
-                        mix_co =  abunds[i] # mixing ratio of CO
-            else:
-                mix_co =  0.0 # mixing ratio of CO
-            if 'H2O' in abund_name:
-                for i in range(len(abund_name)):
-                    if abund_name[i] == 'H2O':
-                        mix_h2o =  abunds[i]# mixing ratio of H2O
-            else:
-                mix_h2o =  0.0
-            if 'CH4' in abund_name:
-                for i in range(len(abund_name)):
-                    if abund_name[i] == 'CH4':
-                        mix_ch4 =  abunds[i]# mixing ratio of CH4
-            else:
-                mix_ch4 =  0.0
-            if 'NH3' in abund_name:
-                for i in range(len(abund_name)):
-                    if abund_name[i] == 'NH3':
-                        mix_nh3 =  abunds[i] # mixing ratio of NH3
-            else:
-                mix_nh3 =  0.0 # mixing ratio of NH3
-            if 'CO2' in abund_name:
-                for i in range(len(abund_name)):
-                    if abund_name[i] == 'CO2':
-                        mix_co2 =  abunds[i]# will mix now
-            else:
-                mix_co2 =  0.0
-
-            if 'N2' in abund_name:
-                for i in range(len(abund_name)):
-                    if abund_name[i] == 'N2':
-                        mix_n2 =  abunds[i]
-            else:
-                mix_n2 =   0.0
-
-            if 'HCN' in abund_name:
-                for i in range(len(abund_name)):
-                    if abund_name[i] == 'HCN':
-                        mix_hcn =  abunds[i]
-            else:
-                mix_hcn = 0.0
-
-            if 'H2' in abund_name:
-                for i in range(len(abund_name)):
-                    if abund_name[i] == 'H2':
-                        mix_h2 =  abunds[i]
-            else:
-                mix_h2 =   0.0
-
-            if 'PH3' in abund_name:
-                for i in range(len(abund_name)):
-                    if abund_name[i] == 'PH3':
-                        mix_ph3 =  abunds[i]
-            else:
-                mix_ph3 = 0.0
-
-            if 'C2H2' in abund_name:
-                for i in range(len(abund_name)):
-                    if abund_name[i] == 'CH2H':
-                        mix_c2h2 =  abunds[i]
-            else:
-                mix_c2h2 =  0.0
-            if 'Na' in abund_name:
-                for i in range(len(abund_name)):
-                    if abund_name[i] == 'Na':
-                        mix_na =  abunds[i]
-                
-            else:
-                mix_na = 0.0
-            
-            if 'K' in abund_name:
-                for i in range(len(abund_name)):
-                    if abund_name[i] == 'K':
-                        mix_k =  abunds[i]
-            else:
-                mix_k =  0.0
-
-            if 'TiO' in abund_name:
-                for i in range(len(abund_name)):
-                    if abund_name[i] == 'TiO':
-                        mix_tio =  abunds[i]
-            else:
-                mix_tio =   0.0
-            
-            if 'VO' in abund_name:
-                for i in range(len(abund_name)):
-                    if abund_name[i] == 'VO':
-                        mix_vo =  abunds[i]
-            else:
-                mix_vo =  0.0
-            
-            if 'FeH' in abund_name:
-                for i in range(len(abund_name)):
-                    if abund_name[i] == 'FeH':
-                        mix_feh =  abunds[i]
-            else:
-                mix_feh = 0.0
-            
-            if 'SO2' in abund_name:
-                for i in range(len(abund_name)):
-                    if abund_name[i] == 'SO2':
-                        mix_so2 =  abunds[i]
-            else:
-                mix_so2 = 0.0
-
-            if 'H2S' in abund_name:
-                for i in range(len(abund_name)):
-                    if abund_name[i] == 'H2S':
-                        mix_h2s =  abunds[i]
-            else:
-                mix_h2s =  0.0
+    
+        if 'CO' in gases_fly:
+            mix_co =   bundle.inputs['atmosphere']['profile']['CO'].values # mixing ratio of CO
         else:
-            if 'CO' in gases_fly:
-                mix_co =   bundle.inputs['atmosphere']['profile']['CO'].values # mixing ratio of CO
-            else:
-                mix_co =   bundle.inputs['atmosphere']['profile']['CO'].values*0.0 # mixing ratio of CO
-            if 'H2O' in gases_fly:
-                mix_h2o =  bundle.inputs['atmosphere']['profile']['H2O'].values # mixing ratio of H2O
-            else:
-                mix_h2o =  bundle.inputs['atmosphere']['profile']['H2O'].values*0.0
-            if 'CH4' in gases_fly:
-                mix_ch4 =  bundle.inputs['atmosphere']['profile']['CH4'].values # mixing ratio of CH4
-            else:
-                mix_ch4 =  bundle.inputs['atmosphere']['profile']['CH4'].values*0.0
-            if 'NH3' in gases_fly:
-                mix_nh3 =  bundle.inputs['atmosphere']['profile']['NH3'].values # mixing ratio of NH3
-            else:
-                mix_nh3 =  bundle.inputs['atmosphere']['profile']['NH3'].values*0.0 # mixing ratio of NH3
-            if 'CO2' in gases_fly:
-                mix_co2 =  bundle.inputs['atmosphere']['profile']['CO2'].values # will mix now
-            else:
-                mix_co2 =  bundle.inputs['atmosphere']['profile']['CO2'].values*0.0
+            mix_co =   bundle.inputs['atmosphere']['profile']['CO'].values*0.0 # mixing ratio of CO
+        if 'H2O' in gases_fly:
+            mix_h2o =  bundle.inputs['atmosphere']['profile']['H2O'].values # mixing ratio of H2O
+        else:
+            mix_h2o =  bundle.inputs['atmosphere']['profile']['H2O'].values*0.0
+        if 'CH4' in gases_fly:
+            mix_ch4 =  bundle.inputs['atmosphere']['profile']['CH4'].values # mixing ratio of CH4
+        else:
+            mix_ch4 =  bundle.inputs['atmosphere']['profile']['CH4'].values*0.0
+        if 'NH3' in gases_fly:
+            mix_nh3 =  bundle.inputs['atmosphere']['profile']['NH3'].values # mixing ratio of NH3
+        else:
+            mix_nh3 =  bundle.inputs['atmosphere']['profile']['NH3'].values*0.0 # mixing ratio of NH3
+        if 'CO2' in gases_fly:
+            mix_co2 =  bundle.inputs['atmosphere']['profile']['CO2'].values # will mix now
+        else:
+            mix_co2 =  bundle.inputs['atmosphere']['profile']['CO2'].values*0.0
 
-            if 'N2' in gases_fly:
-                mix_n2 =   bundle.inputs['atmosphere']['profile']['N2'].values
-            else:
-                mix_n2 =   bundle.inputs['atmosphere']['profile']['N2'].values*0.0
+        if 'N2' in gases_fly:
+            mix_n2 =   bundle.inputs['atmosphere']['profile']['N2'].values
+        else:
+            mix_n2 =   bundle.inputs['atmosphere']['profile']['N2'].values*0.0
 
-            if 'HCN' in gases_fly:
-                mix_hcn =   bundle.inputs['atmosphere']['profile']['HCN'].values
-            else:
-                mix_hcn =   bundle.inputs['atmosphere']['profile']['HCN'].values*0.0
+        if 'HCN' in gases_fly:
+            mix_hcn =   bundle.inputs['atmosphere']['profile']['HCN'].values
+        else:
+            mix_hcn =   bundle.inputs['atmosphere']['profile']['HCN'].values*0.0
 
-            if 'H2' in gases_fly:
-                mix_h2 =   bundle.inputs['atmosphere']['profile']['H2'].values
-            else:
-                mix_h2 =   bundle.inputs['atmosphere']['profile']['H2'].values*0.0
+        if 'H2' in gases_fly:
+            mix_h2 =   bundle.inputs['atmosphere']['profile']['H2'].values
+        else:
+            mix_h2 =   bundle.inputs['atmosphere']['profile']['H2'].values*0.0
 
-            if 'PH3' in gases_fly:
-                mix_ph3 =   bundle.inputs['atmosphere']['profile']['PH3'].values
-            else:
-                mix_ph3 =   bundle.inputs['atmosphere']['profile']['PH3'].values*0.0
+        if 'PH3' in gases_fly:
+            mix_ph3 =   bundle.inputs['atmosphere']['profile']['PH3'].values
+        else:
+            mix_ph3 =   bundle.inputs['atmosphere']['profile']['PH3'].values*0.0
 
-            if 'C2H2' in gases_fly:
-                mix_c2h2 =   bundle.inputs['atmosphere']['profile']['C2H2'].values
-            else:
-                mix_c2h2 =   bundle.inputs['atmosphere']['profile']['C2H2'].values*0.0
-            if 'Na' in gases_fly:
-                mix_na =   ( bundle.inputs['atmosphere']['profile']['Na'].values)
-            else:
-                mix_na =   ( bundle.inputs['atmosphere']['profile']['Na'].values)*0.0
-            
-            if 'K' in gases_fly:
-                mix_k =   ( bundle.inputs['atmosphere']['profile']['K'].values)
-            else:
-                mix_k =   ( bundle.inputs['atmosphere']['profile']['K'].values)*0.0
+        if 'C2H2' in gases_fly:
+            mix_c2h2 =   bundle.inputs['atmosphere']['profile']['C2H2'].values
+        else:
+            mix_c2h2 =   bundle.inputs['atmosphere']['profile']['C2H2'].values*0.0
+        if 'Na' in gases_fly:
+            mix_na =   ( bundle.inputs['atmosphere']['profile']['Na'].values)
+        else:
+            mix_na =   ( bundle.inputs['atmosphere']['profile']['Na'].values)*0.0
+        
+        if 'K' in gases_fly:
+            mix_k =   ( bundle.inputs['atmosphere']['profile']['K'].values)
+        else:
+            mix_k =   ( bundle.inputs['atmosphere']['profile']['K'].values)*0.0
 
-            if 'TiO' in gases_fly:
-                mix_tio =   ( bundle.inputs['atmosphere']['profile']['TiO'].values)
-            else:
-                mix_tio =   ( bundle.inputs['atmosphere']['profile']['TiO'].values)*0.0
-            
-            if 'VO' in gases_fly:
-                mix_vo =   ( bundle.inputs['atmosphere']['profile']['VO'].values)
-            else:
-                mix_vo =   ( bundle.inputs['atmosphere']['profile']['VO'].values)*0.0
-            
-            if 'FeH' in gases_fly:
-                mix_feh =   ( bundle.inputs['atmosphere']['profile']['FeH'].values)
-            else:
-                mix_feh =   ( bundle.inputs['atmosphere']['profile']['FeH'].values)*0.0
-            
-            if 'SO2' in gases_fly:
-                mix_so2 =   ( bundle.inputs['atmosphere']['profile']['SO2'].values)
-            else:
-                mix_so2 =   ( bundle.inputs['atmosphere']['profile']['H2O'].values)*0.0
+        if 'TiO' in gases_fly:
+            mix_tio =   ( bundle.inputs['atmosphere']['profile']['TiO'].values)
+        else:
+            mix_tio =   ( bundle.inputs['atmosphere']['profile']['TiO'].values)*0.0
+        
+        if 'VO' in gases_fly:
+            mix_vo =   ( bundle.inputs['atmosphere']['profile']['VO'].values)
+        else:
+            mix_vo =   ( bundle.inputs['atmosphere']['profile']['VO'].values)*0.0
+        
+        if 'FeH' in gases_fly:
+            mix_feh =   ( bundle.inputs['atmosphere']['profile']['FeH'].values)
+        else:
+            mix_feh =   ( bundle.inputs['atmosphere']['profile']['FeH'].values)*0.0
+        
+        if 'SO2' in gases_fly:
+            mix_so2 =   ( bundle.inputs['atmosphere']['profile']['SO2'].values)
+        else:
+            mix_so2 =   ( bundle.inputs['atmosphere']['profile']['H2O'].values)*0.0
 
-            if 'H2S' in gases_fly:
-                mix_h2s =   ( bundle.inputs['atmosphere']['profile']['H2S'].values)
-            else:
-                mix_h2s =   ( bundle.inputs['atmosphere']['profile']['H2O'].values)*0.0
+        if 'H2S' in gases_fly:
+            mix_h2s =   ( bundle.inputs['atmosphere']['profile']['H2S'].values)
+        else:
+            mix_h2s =   ( bundle.inputs['atmosphere']['profile']['H2O'].values)*0.0
 
                 
         
