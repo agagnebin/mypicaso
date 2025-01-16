@@ -4112,8 +4112,16 @@ class inputs():
             if custom_abundances: ######EDITING HERE
                 if verbose: print("From now I will mix "+str(gases_fly)+" only on--the--fly")
                 opacityclass = opannection( wave_range = wave_range, 
-                    ck_db=opacityclass.ck_filename,filename_db=filename_db, custom_abundances=True, abunds = abunds,
+                    ck_db=opacityclass.ck_filename,filename_db=filename_db, custom_abundances=False, abunds = abunds,
                     deq = True,on_fly=True,gases_fly=gases_fly)
+                for j in range(len(opacityclass.full_abunds.columns)):
+                    for i in range(len(opacityclass.full_abunds['e-'])):
+                        if opacityclass.full_abunds.columns[j] == 'H2O':
+                            opacityclass.full_abunds['H2O'][i] = opacityclass.full_abunds['H2O'][i]  #0.8
+                        if opacityclass.full_abunds.columns[j] == 'CO2':
+                            opacityclass.full_abunds['CO2'][i] = opacityclass.full_abunds['CO2'][i] #0.2
+                        if opacityclass.full_abunds.columns[j] != 'H2O' and opacityclass.full_abunds.columns[j] != 'CO2' and opacityclass.full_abunds.columns[j] != 'pressure' and opacityclass.full_abunds.columns[j] != 'temperature':
+                            opacityclass.full_abunds[opacityclass.full_abunds.columns[j]][i] = opacityclass.full_abunds[opacityclass.full_abunds.columns[j]][i] #4.544800e-20
             
             else:
                 #phillips comparison (discontinued) 
@@ -4268,7 +4276,7 @@ class inputs():
 
             ntmps = int((tmax-tmin)/dt)
             
-
+            bb , y2 , tp = 0,0,0
             #bb , y2 , tp = set_bb(wno,delta_wno,nwno,ntmps,dt,tmin,tmax)
 
         

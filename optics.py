@@ -666,92 +666,50 @@ class RetrieveCKs():
         self.full_abunds =  pd.read_csv(os.path.join(self.ck_filename,'full_abunds'),
             sep='\s+')
         self.kcoeff_layers = self.full_abunds.shape[0]
-        if custom_abundances:
-            if wave_range == None:
-                print('Please specify wavelength range!')
+        
+        if deq == False :
+        #choose get data function based on layer number
             if self.kcoeff_layers==1060: 
                 self.get_legacy_data_1060(wave_range,deq=deq) #wave_range not used yet
             elif self.kcoeff_layers==1460:
                 self.get_legacy_data_1460(wave_range) #wave_range not used yet
             else: 
                 raise Exception(f"There are {self.kcoeff_layers} in the full_abunds file. Currently only the 1060 or 1460 grids are supported. Please check your file input.")
-                
-            opa_filepath  = os.path.join(__refdata__, 'climate_INPUTS/661')
-            print(opa_filepath)
-            self.get_new_wvno_grid_661()
-            print(abund_name)
-            #abunds = []
-            #for i in range(len(abunds)):
-             #   abunds.append(abunds[i])
-            self.full_abunds = abunds
-            print(self.full_abunds)
+            
             self.db_filename = cont_dir
-           # wv = np.linspace(wave_range[0], wave_range[1], 100)
-            #self.wno = 1e4/wv[::-1]
-            #self.delta_wno = self.wno[1] - self.wno[0]
+            
             self.get_available_continuum()
             self.get_available_rayleigh()
-            self.ngauss = 1
-            #self.ck_filename = ck_dir
-            print(self.ck_filename)
-            
-            #self.full_abunds =  pd.read_csv(os.path.join(self.ck_filename,'full_abunds'), sep='\s+')
-            #self.kcoeff_layers = self.full_abunds.shape[0]
-            #if self.kcoeff_layers==1060: 
-             #   self.get_legacy_data_1060(wave_range,deq=deq) #wave_range not used yet
-            #elif self.kcoeff_layers==1460:
-             #   self.get_legacy_data_1460(wave_range)
+            self.run_cia_spline()
         
-       
-        #read in the full abundance file sot hat we can check the number of kcoefficient layers 
-        #this should either be 1460 or 1060
-        
-        #self.kcoeff_layers = self.full_abunds.shape[0]
-        else:
-
-            if deq == False :
-            #choose get data function based on layer number
-                if self.kcoeff_layers==1060: 
-                    self.get_legacy_data_1060(wave_range,deq=deq) #wave_range not used yet
-                elif self.kcoeff_layers==1460:
-                    self.get_legacy_data_1460(wave_range) #wave_range not used yet
-                else: 
-                    raise Exception(f"There are {self.kcoeff_layers} in the full_abunds file. Currently only the 1060 or 1460 grids are supported. Please check your file input.")
-                
-                self.db_filename = cont_dir
-                
-                self.get_available_continuum()
-                self.get_available_rayleigh()
-                self.run_cia_spline()
+    
+        elif (deq == True) and (on_fly == False) :
+            #this option follows the old method where we used 
+            #661 fortran files computed by T.Karidali
+            #this is why we have to use the 1060 files instead 
+            #of the 1460 files
+            self.get_legacy_data_1060(wave_range,deq=deq)
+            self.get_new_wvno_grid_661()
             
+            opa_filepath  = os.path.join(__refdata__, 'climate_INPUTS/661')
+            self.load_kcoeff_arrays(opa_filepath)
+            self.db_filename = cont_dir
+            self.get_available_continuum()
+            self.get_available_rayleigh()
+            self.run_cia_spline_661()
         
-            elif (deq == True) and (on_fly == False) :
-                #this option follows the old method where we used 
-                #661 fortran files computed by T.Karidali
-                #this is why we have to use the 1060 files instead 
-                #of the 1460 files
-                self.get_legacy_data_1060(wave_range,deq=deq)
-                self.get_new_wvno_grid_661()
-                
-                opa_filepath  = os.path.join(__refdata__, 'climate_INPUTS/661')
-                self.load_kcoeff_arrays(opa_filepath)
-                self.db_filename = cont_dir
-                self.get_available_continuum()
-                self.get_available_rayleigh()
-                self.run_cia_spline_661()
+        elif (deq == True) and (on_fly== True) :
+            #self.get_gauss_pts_661_1460() repetetive code function
+            self.get_legacy_data_1460(wave_range)
+            self.get_new_wvno_grid_661()
             
-            elif (deq == True) and (on_fly== True) :
-                #self.get_gauss_pts_661_1460() repetetive code function
-                self.get_legacy_data_1460(wave_range)
-                self.get_new_wvno_grid_661()
-                
-                opa_filepath  = os.path.join(__refdata__, 'climate_INPUTS/661')
-                self.load_kcoeff_arrays_first(opa_filepath,gases_fly)
-                self.db_filename = cont_dir
-                self.get_available_continuum()
-                self.get_available_rayleigh()
-                self.run_cia_spline_661()
-            return
+            opa_filepath  = os.path.join(__refdata__, 'climate_INPUTS/661')
+            self.load_kcoeff_arrays_first(opa_filepath,gases_fly)
+            self.db_filename = cont_dir
+            self.get_available_continuum()
+            self.get_available_rayleigh()
+            self.run_cia_spline_661()
+        return
 
     def get_legacy_data_1060(self,wave_range, deq=False):
         """

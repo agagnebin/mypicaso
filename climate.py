@@ -1614,8 +1614,8 @@ def calculate_atm_deq(bundle, opacityclass,on_fly=False,gases_fly=None, fthin_cl
     else:
         opacityclass.get_opacities_deq_onfly(bundle,atm,gases_fly=gases_fly)
 
-    if custom_abundances == False:
-        opacityclass.get_opacities_deq(bundle,atm)
+    if custom_abundances == True:
+        opacityclass.get_opacities_deq_onfly(bundle,atm,gases_fly=gases_fly)
     #check if patchy clouds are requested
     if do_holes == True:
         DTAU, TAU, W0, COSB,ftau_cld, ftau_ray,GCOS2, DTAU_OG, TAU_OG, W0_OG, COSB_OG, W0_no_raman, f_deltaM= compute_opacity(
